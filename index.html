@@ -1,1 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Infusão em Tempo Real</title>
+    <!-- Biblioteca MQTT para o navegador -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+        
+        body {
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            min-height: 100vh; 
+            background: #1a1a2e; 
+            color: #fff;
+            transition: background 0.5s ease;
+        }
 
+        .card {
+            background: #16213e; 
+            padding: 3rem 5rem; 
+            border-radius: 20px;
+            text-align: center; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            transition: all 0.4s ease;
+            border: 2px solid transparent;
+        }
+
+        /* Estilos para quando a infusão estiver acabando ou acabada */
+        .card.fim { 
+            background: #4a0e0e; 
+            box-shadow: 0 0 60px rgba(255, 0, 0, 0.4); 
+            border-color: #ff4d4d;
+        }
+        
+        /* Estilos para quando a infusão estiver normal */
+        .card.ativo { 
+            background: #0e4a2e; 
+            box-shadow: 0 0 60px rgba(0, 255, 100, 0.2); 
+            border-color: #4dff88;
+        }
+
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; font-weight: 400; opacity: 0.8; }
+        
+        #status {
+            font-size: 3.5rem; 
+            font-weight: 800; 
+            letter-spacing: 2px;
+            margin: 1.5rem 0; 
+            transition: color 0.3s;
+        }
+
+        #detalhe { font-size: 1rem; opacity: 0.7; margin-bottom: 2rem; }
+        
+        .badge {
+            display: inline-block; 
+            padding: 0.5rem 1rem; 
+            border-radius: 8px;
+            font-size: 0.8rem; 
+            background: rgba(255,255,255,0.1);
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="card" id="card">
+        <h1>SISTEMA DE MONITORAMENTO</h1>
+        <div id="status">Conectando...</div>
+        <div id="detalhe">Aguardando dados do broker MQTT</div>
+        <div class="badge" id="badge">Tópico: Carregando...</div>
+    </div>
+
+    <script>
+        // ========== CONFIGURAÇÕES DO BROKER PÚBLICO ==========
+        const MQTT_HOST = 'ws://broker.hivemq.com:8000/mqtt';
+        
+        // IMPORTANTE: O nome do tópico aqui DEVE SER IGUAL ao do Python
+        const TOPICO = 'infusao'; 
+        // =====================================================
+
+        const statusEl = document.getElementById('status');
+        const detalheEl = document.getElementById('detalhe');
+        const cardEl = document.getElementById('card');
+        const badgeEl = document.getElementById('badge');
+
+        // Atualiza o texto do tópico na tela para conferência
+        badgeEl.textContent = `Tópico: ${TOPICO}`;
+
+        // Configurações da conexão (sem usuário e senha para broker público)
+        const options = {
+            clientId: 'dashboard_' + Math.random().toString(16).substr(2, 8),
+            clean: true,
+            reconnectPeriod: 3000, // Tenta reconectar a cada 3 segundos se cair
+        };
+
+        // Inicia a conexão
+        const client = mqtt.connect(MQTT_HOST, options);
+
+        client.on('connect', () => {
+            console.log('✅ Conectado ao HiveMQ Público');
+            detalheEl.textContent = 'Monitorando sinal do Arduino...';
+            
+            // Assina o tópico
+            client.subscribe(TOPICO, { qos: 1 }, (err) => {
+                if (!err) {
+                    console.log(`📡 Inscrito no tópico: ${TOPICO}`);
+                }
+            });
+        });
+
+        // Escuta as mensagens que chegam
+        client.on('message', (topic, payload) => {
+            const msg = payload.toString();
+            console.log('📥 Mensagem recebida:', msg);
+
+            if (msg === 'OFF') {
+                // Infusão Finalizada
+                statusEl.textContent = 'FIM DA INFUSÃO';
+                statusEl.style.color = '#ff4d4d';
+                detalheEl.textContent = 'O conta-gotas parou de pingar.';
+                cardEl.className = 'card fim';
+            } 
+            else if (msg === 'ON') {
+                // Infusão em andamento
+                statusEl.textContent = 'EM ANDAMENTO';
+                statusEl.style.color = '#4dff88';
+                detalheEl.textContent = 'Infusão pingando normalmente.';
+                cardEl.className = 'card ativo';
+            }
+        });
+
+        client.on('error', (err) => {
+            console.error('❌ Erro MQTT:', err);
+            detalheEl.textContent = 'Erro de conexão. Verifique o console (F12).';
+            statusEl.textContent = 'OFFLINE';
+            statusEl.style.color = '#888';
+            cardEl.className = 'card';
+        });
+
+        client.on('reconnect', () => {
+            detalheEl.textContent = 'Reconectando ao broker...';
+        });
+    </script>
+</body>
+</html>
