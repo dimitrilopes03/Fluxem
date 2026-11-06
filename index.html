@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitor de Infusão em Tempo Real</title>
     
-    <!-- MQTT.js versão 4.3.7 (Versão estável que não buga com o HiveMQ) -->
+    <!-- MQTT.js versão 4.3.7 (Versão estável) -->
     <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
     
     <style>
@@ -77,8 +77,8 @@
 
     <script>
         // ========== CONFIGURAÇÕES ==========
-        // URL do Broker Público (Termina com /mqtt)
-        const MQTT_HOST = 'wss://broker.hivemq.com:8000/mqtt';
+        // Usando WSS (Seguro) na porta 8884 para funcionar no GitHub Pages (HTTPS)
+        const MQTT_HOST = 'wss://broker.hivemq.com:8884/mqtt';
         
         // ATENÇÃO: Este tópico TEM que ser idêntico ao do Python (ponte.py)
         const TOPICO = 'infusao'; 
@@ -102,7 +102,7 @@
         const client = mqtt.connect(MQTT_HOST, options);
 
         client.on('connect', () => {
-            console.log('✅ Conectado ao HiveMQ Público');
+            console.log('✅ Conectado ao HiveMQ Público com WSS');
             detalheEl.textContent = 'Monitorando sinal do Arduino...';
             statusEl.textContent = 'AGUARDANDO DADOS';
             statusEl.style.color = '#fff';
