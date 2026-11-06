@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitor de Infusão em Tempo Real</title>
-    <!-- Biblioteca MQTT para o navegador -->
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    
+    <!-- MQTT.js versão 4.3.7 (Versão estável que não buga com o HiveMQ) -->
+    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
         
@@ -27,16 +29,16 @@
             box-shadow: 0 10px 40px rgba(0,0,0,0.5);
             transition: all 0.4s ease;
             border: 2px solid transparent;
+            width: 90%;
+            max-width: 500px;
         }
 
-        /* Estilos para quando a infusão estiver acabando ou acabada */
         .card.fim { 
             background: #4a0e0e; 
             box-shadow: 0 0 60px rgba(255, 0, 0, 0.4); 
             border-color: #ff4d4d;
         }
         
-        /* Estilos para quando a infusão estiver normal */
         .card.ativo { 
             background: #0e4a2e; 
             box-shadow: 0 0 60px rgba(0, 255, 100, 0.2); 
@@ -46,9 +48,9 @@
         h1 { font-size: 1.5rem; margin-bottom: 0.5rem; font-weight: 400; opacity: 0.8; }
         
         #status {
-            font-size: 3.5rem; 
+            font-size: 3rem; 
             font-weight: 800; 
-            letter-spacing: 2px;
+            letter-spacing: 1px;
             margin: 1.5rem 0; 
             transition: color 0.3s;
         }
@@ -74,26 +76,26 @@
     </div>
 
     <script>
-        // ========== CONFIGURAÇÕES DO BROKER PÚBLICO ==========
+        // ========== CONFIGURAÇÕES ==========
+        // URL do Broker Público (Termina com /mqtt)
         const MQTT_HOST = 'ws://broker.hivemq.com:8000/mqtt';
         
-        // IMPORTANTE: O nome do tópico aqui DEVE SER IGUAL ao do Python
+        // ATENÇÃO: Este tópico TEM que ser idêntico ao do Python (ponte.py)
         const TOPICO = 'infusao'; 
-        // =====================================================
+        // ===================================
 
         const statusEl = document.getElementById('status');
         const detalheEl = document.getElementById('detalhe');
         const cardEl = document.getElementById('card');
         const badgeEl = document.getElementById('badge');
 
-        // Atualiza o texto do tópico na tela para conferência
         badgeEl.textContent = `Tópico: ${TOPICO}`;
 
-        // Configurações da conexão (sem usuário e senha para broker público)
+        // Configurações de conexão
         const options = {
             clientId: 'dashboard_' + Math.random().toString(16).substr(2, 8),
             clean: true,
-            reconnectPeriod: 3000, // Tenta reconectar a cada 3 segundos se cair
+            reconnectPeriod: 3000, // Tenta reconectar a cada 3 segundos
         };
 
         // Inicia a conexão
@@ -102,11 +104,15 @@
         client.on('connect', () => {
             console.log('✅ Conectado ao HiveMQ Público');
             detalheEl.textContent = 'Monitorando sinal do Arduino...';
+            statusEl.textContent = 'AGUARDANDO DADOS';
+            statusEl.style.color = '#fff';
             
             // Assina o tópico
             client.subscribe(TOPICO, { qos: 1 }, (err) => {
                 if (!err) {
                     console.log(`📡 Inscrito no tópico: ${TOPICO}`);
+                } else {
+                    console.error('Erro ao assinar:', err);
                 }
             });
         });
@@ -117,14 +123,12 @@
             console.log('📥 Mensagem recebida:', msg);
 
             if (msg === 'OFF') {
-                // Infusão Finalizada
                 statusEl.textContent = 'FIM DA INFUSÃO';
                 statusEl.style.color = '#ff4d4d';
                 detalheEl.textContent = 'O conta-gotas parou de pingar.';
                 cardEl.className = 'card fim';
             } 
             else if (msg === 'ON') {
-                // Infusão em andamento
                 statusEl.textContent = 'EM ANDAMENTO';
                 statusEl.style.color = '#4dff88';
                 detalheEl.textContent = 'Infusão pingando normalmente.';
